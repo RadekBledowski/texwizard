@@ -145,10 +145,10 @@ void Init()
 {
 	SetCurrentDirectoryA(exe_dir().c_str());
 
-	const char* roots[2] = { "TexturePacks", "scripts\\TexturePacks" };
+	const char* roots[1] = { "scripts\\TexturePacks" };
 	std::set<std::string> seenJson;
 
-	for (int r = 0; r < 2; ++r)
+	for (int r = 0; r < 1; ++r)
 	{
 		char pattern[MAX_PATH]{ 0 };
 		snprintf(pattern, sizeof(pattern), "%s\\*.json", roots[r]);
