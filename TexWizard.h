@@ -223,43 +223,86 @@ void Init()
 
 	//Legacy support
 	{
+		std::ifstream ifs;
+		ifs.open("scripts\\TexWizard.json"); 
+		if (!ifs.is_open()) ifs.open("TexWizard.json"); 
+
+		Json::CharReaderBuilder builder;
 		Json::Value root;
-		if (try_read_json_file("TexWizard.json", root, nullptr))
+		JSONCPP_STRING errs;
+		if (parseFromStream(builder, ifs, &root, &errs))
 		{
-			const Json::Value& packs = root["packs"];
-			for (Json::ArrayIndex i = 0; i < packs.size(); i++)
+			Json::Value packs = root["packs"];
+
+			for (int index = 0; index < (int)packs.size(); index++)
 			{
-				const std::string packRoot = packs[i].asString();
+				Json::Value pack = packs[index];
+				Json::String packString = pack.asString();
+				std::string packRoot = packString.c_str();
 
-				const std::string configPath = packRoot + "\\meta.json";
-				const std::string dataPath = packRoot + "\\textures.bin";
+				std::string configPath = packRoot + "\\meta.json";
+				std::string dataPath = packRoot + "\\textures.bin";
 
-				Json::Value meta;
-				if (!try_read_json_file(configPath, meta, nullptr))
+				std::ifstream ifs2;
+				ifs2.open(configPath); 
+
+				Json::CharReaderBuilder builder2;
+				Json::Value root2;
+				JSONCPP_STRING errs2;
+				if (!parseFromStream(builder2, ifs2, &root2, &errs2))
 				{
-					std::string msg = "Failed to open legacy pack config " + configPath;
-					MessageBoxA(NULL, msg.c_str(), "TexWizard", MB_ICONERROR);
-					continue;
+					ifs2.clear();
+					ifs2.open("..\\" + configPath);
+					if (!parseFromStream(builder2, ifs2, &root2, &errs2))
+					{
+						MessageBoxA(NULL, ((std::string)"Failed to parse texture pack configuration " + configPath).c_str(), "TexWizard", MB_ICONERROR);
+						continue;
+					}
 				}
 
 				char* dataPathChar = new char[dataPath.length() + 1];
 				strcpy(dataPathChar, dataPath.c_str());
 				packList.push_back(dataPathChar);
 
-				const Json::Value& textures = meta["textures"];
-				for (Json::ArrayIndex j = 0; j < textures.size(); j++)
+				Json::Value textures = root2["textures"];
+				for (int j = 0; j < (int)textures.size(); j++)
 				{
-					const Json::Value& item = textures[j];
-					if (!item.isArray() || item.size() < 2) continue;
+					Json::Value texture = textures[j];
+					Json::String key = texture[0].asString();
+					Json::String value = texture[1].asString();
 
-					const std::string key = item[0].asString();
-					const std::string value = item[1].asString();
+					unsigned int keyHash;
+					unsigned int valueHash;
 
-					unsigned int keyHash = 0;
-					unsigned int valHash = 0;
-					parse_key_or_hex_to_hash(key, keyHash);
-					parse_key_or_hex_to_hash(value, valHash);
-					textureMap[keyHash] = valHash;
+					if (key.rfind("0x", 0) == 0)
+					{
+						key.erase(0, 2);
+						std::istringstream converter(key);
+						converter >> std::hex >> keyHash;
+					}
+					else 
+					{
+						char* keyChar = new char[key.length() + 1];
+						strcpy(keyChar, key.c_str());
+						keyHash = bStringHash(keyChar);
+						delete[] keyChar;
+					}
+
+					if (value.rfind("0x", 0) == 0)
+					{
+						value.erase(0, 2);
+						std::istringstream converter(value);
+						converter >> std::hex >> valueHash;
+					}
+					else
+					{
+						char* valueChar = new char[value.length() + 1];
+						strcpy(valueChar, value.c_str());
+						valueHash = bStringHash(valueChar);
+						delete[] valueChar;
+					}
+
+					textureMap[keyHash] = valueHash;
 				}
 			}
 		}
